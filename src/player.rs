@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-pub const PLAYER_SPEED: f32 = 300.0;
+pub const PLAYER_SPEED: f32 = 100.0;
 pub const PLAYER_SIZE: f32 = 64.0;
 
 #[derive(Component)]
@@ -15,15 +15,9 @@ pub struct AnimationTimer(Timer);
 
 pub fn animate_sprite(
     time: Res<Time>,
-    mut query: Query<(
-        &Player,
-        &AnimationIndices,
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-    )>,
+    mut query: Query<(&Player, &mut AnimationTimer, &mut TextureAtlasSprite)>,
 ) {
-    if let Ok((player, indices, mut timer, mut sprite)) = query.get_single_mut()
-    {
+    if let Ok((player, mut timer, mut sprite)) = query.get_single_mut() {
         let range = match player.rotation {
             PlayerRotation::Down => AnimationIndices { first: 0, last: 5 },
             PlayerRotation::Up => AnimationIndices {
@@ -39,6 +33,7 @@ pub fn animate_sprite(
         timer.tick(time.delta());
 
         if timer.just_finished() {
+            // adjust the sprite index to the next sprite in the animation range.
             sprite.index =
                 if sprite.index >= range.last || sprite.index < range.first {
                     range.first
@@ -113,22 +108,32 @@ pub fn player_movement(
             direction = direction.normalize_or_zero();
         }
 
+        let shift =
+            keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]);
+        let speed = if shift { 2.0 } else { 1.0 };
+
+        // Directional movement
         if keyboard_input.pressed(KeyCode::A) {
             player.rotation = PlayerRotation::Left;
-            direction += Vec3::new(-1.0, 0.0, 0.0);
+            direction += Vec3::new(-1.0 * speed, 0.0, 0.0);
         }
         if keyboard_input.pressed(KeyCode::D) {
             player.rotation = PlayerRotation::Right;
-            direction += Vec3::new(1.0, 0.0, 0.0);
+            direction += Vec3::new(1.0 * speed, 0.0, 0.0);
         }
         if keyboard_input.pressed(KeyCode::W) {
             player.rotation = PlayerRotation::Up;
-            direction += Vec3::new(0.0, 1.0, 0.0);
+            direction += Vec3::new(0.0, 1.0 * speed, 0.0);
         }
         if keyboard_input.pressed(KeyCode::S) {
             player.rotation = PlayerRotation::Down;
-            direction += Vec3::new(0.0, -1.0, 0.0);
+            direction += Vec3::new(0.0, -1.0 * speed, 0.0);
         }
+
+        // // Diagonal movement (jump)
+        // if keyboard_input.pressed(KeyCode::Space) {
+        //     direction += Vec3::new(0.0, 1.0, 0.0);
+        // }
 
         transform.translation +=
             direction * PLAYER_SPEED * time.delta_seconds();
